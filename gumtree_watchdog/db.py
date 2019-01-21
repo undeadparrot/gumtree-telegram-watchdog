@@ -1,9 +1,10 @@
+import os
 import os.path
 import sqlite3
 import logging
 
 def get_connection():
-    conn = sqlite3.connect("gumtree.db")
+    conn = sqlite3.connect(os.environ.get('GUMTREE_DB', "gumtree.db"))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -20,7 +21,7 @@ def initialize():
                 contract_id integer primary key autoincrement,
                 query text not null,
                 chat_id integer not null,
-                is_active bool default false,
+                is_active bool default 0,
                 UNIQUE(chat_id, query)
             );
         """)    
@@ -33,7 +34,7 @@ def initialize():
                 description text not null,
                 url text,
                 img_src text,
-                must_notify_user bool default true,
+                must_notify_user bool default 1,
                 FOREIGN KEY(contract_id) REFERENCES contract(contract_id),
                 UNIQUE(contract_id, ad_id)
             );
@@ -96,13 +97,13 @@ def insert_listing(contract_id: int, ad_id: str, url: str, title: str, descripti
 def get_open_contracts():
     with get_connection() as conn:
         return conn.execute("""
-            SELECT * FROM contract WHERE is_active = 'true'; 
+            SELECT * FROM contract WHERE is_active = 1; 
         """).fetchall()
         
 def get_open_contracts_for_user(chat_id: int):
     with get_connection() as conn:
         return conn.execute("""
-            SELECT * FROM contract WHERE is_active = 'true' and chat_id = :chat_id ; 
+            SELECT * FROM contract WHERE is_active = 1 and chat_id = :chat_id ; 
         """, dict(
             chat_id=chat_id
         )).fetchall()
@@ -113,27 +114,27 @@ def get_unsent_listing_notifications():
             SELECT listing_id, chat_id, url, title, description 
             FROM listing 
             JOIN contract USING (contract_id) 
-            WHERE must_notify_user = 'true'
-            AND contract.is_active = 'true'  ; 
+            WHERE must_notify_user = 1
+            AND contract.is_active = 1  ; 
         """).fetchall()
 
 def mark_listing_as_sent(listing_id):
     with get_connection() as conn:
         return conn.execute("""
-            UPDATE listing SET must_notify_user = 'false' WHERE listing_id = :listing_id  ; 
+            UPDATE listing SET must_notify_user = 0 WHERE listing_id = :listing_id  ; 
         """, dict(listing_id=listing_id))
 
 def deactivate_contract(chat_id: str, contract_id: int):
     with get_connection() as conn:
         conn.execute("""
-            UPDATE contract SET is_active = 'false' WHERE contract_id = :contract_id AND chat_id = :chat_id
+            UPDATE contract SET is_active = 0 WHERE contract_id = :contract_id AND chat_id = :chat_id
         """, dict(contract_id=contract_id, chat_id=chat_id))
         
 def mark_contract_active(contract_id: int):
     with get_connection() as conn:
         conn.execute("""
-            UPDATE listing SET must_notify_user = 'false' WHERE contract_id = :contract_id
+            UPDATE listing SET must_notify_user = 0 WHERE contract_id = :contract_id
         """, dict(contract_id=contract_id))
         conn.execute("""
-            UPDATE contract SET is_active = 'true' WHERE contract_id = :contract_id
+            UPDATE contract SET is_active = 1 WHERE contract_id = :contract_id
         """, dict(contract_id=contract_id))

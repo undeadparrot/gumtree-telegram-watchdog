@@ -7,7 +7,7 @@ import telegram
 from telegram.ext import Updater, MessageHandler, CommandHandler
 
 import gumtree_watchdog.cron_app
-import gumtree_watchdog import db
+from gumtree_watchdog import db
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -42,7 +42,7 @@ def watch(bot, update, args):
 
     update.message.reply_text(
         'Understood, doing a preliminary scrape of the search now')
-    gumtree_watchdog.cron_app.run_contract(contract_id, args[0])
+    gumtree_watchdog.cron_app.crawl_gumtree(contract_id, args[0])
     db.mark_contract_active(contract_id)
     update.message.reply_text('Done.')
 
@@ -76,20 +76,23 @@ list_open_contracts_handler = CommandHandler('list',
 
 
 def callback_minute():
+    logging.warning("Checking for notifications to send")
     for listing in db.get_unsent_listing_notifications():
+        logging.warning("Sending notification for %s", listing['title'])
         bot.send_message(
             listing['chat_id'],
             text=
             f'There is a new listing: {listing["title"]} \n {listing["url"]}')
         db.mark_listing_as_sent(listing['listing_id'])
-    t = threading.Timer(15.0, callback_minute)
+    t = threading.Timer(30.0, callback_minute)
     t.start()
 
+def main():
+    updater = Updater(token=TELEGRAM_TOKEN)
+    updater.dispatcher.add_handler(watch_handler)
+    updater.dispatcher.add_handler(stop_handler)
+    updater.dispatcher.add_handler(list_open_contracts_handler)
+    updater.dispatcher.add_handler(message_handler)
+    updater.start_polling()
+    callback_minute()
 
-updater = Updater(token=TELEGRAM_TOKEN)
-updater.dispatcher.add_handler(watch_handler)
-updater.dispatcher.add_handler(stop_handler)
-updater.dispatcher.add_handler(list_open_contracts_handler)
-updater.dispatcher.add_handler(message_handler)
-updater.start_polling()
-callback_minute()

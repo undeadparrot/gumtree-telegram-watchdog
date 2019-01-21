@@ -4,7 +4,7 @@ setup(
     name='gumtree_watchdog',
     author='Shane Matuszek',
     packages=find_packages(),
-    install_requires=['python-telegram-bot', 'scrapy'],
+    install_requires=['python-telegram-bot', 'beautifulsoup4'],
     entry_points={
         'console_scripts': [
             'gumtree_watchdog_api=gumtree_watchdog.telegram_app:main',

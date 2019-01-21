@@ -1,32 +1,39 @@
 # -*- coding: utf-8 -*-
-import scrapy
-import gumtree_watchdog import db
+import urllib.request
+from urllib.parse import urlparse, urljoin
+from bs4 import BeautifulSoup
+from gumtree_watchdog import db
 
+def absolute_link(base, link):
+    parsed = urlparse(base)
+    return urljoin(f'{parsed.scheme}://{parsed.netloc}', link)
 
-class GumtreeSpider(scrapy.Spider):
-    name = "gumtree_spider"
-    custom_settings = {'DEPTH_LIMIT': '2'}
+class Spider():
 
-    def __init__(self, contract_id='', query_url='', **kwargs):
-        self.start_urls = [query_url]
-        super().__init__(**kwargs)
+    def __init__(self, contract_id, query_url):
+        self.query_url = query_url
         self.contract_id = contract_id
 
-    def parse(self, response):
-        for listing in response.css('.result.pictures'):
-            title = listing.css('.title a::text').extract_first()
-            description = listing.css('.description::text').extract_first()
-            img_src = listing.css('img::attr(src)').extract_first()
-            url = response.urljoin(
-                listing.css('.href-link::attr(href)').extract_first())
-            ad_id = listing.css(
-                '.result.pictures::attr(data-criteoadid)').extract_first()
-            print("Listing " + img_src)
-            db.insert_listing(self.contract_id, ad_id, url, title, description)
+    def run(self):
+        return list(self.parse(self.query_url))
 
-        next_page = response.css('a.next.follows::attr(href)').extract_first()
-        if next_page:
-            yield response.follow(next_page)
+    def parse(self, url, depth=0):
+        response = BeautifulSoup(urllib.request.urlopen(url))
+        for listing in response.select('.result.pictures'):
+            title = listing.select_one('.title a').text
+            description = listing.select_one('.description').text
+            img = listing.select_one('img')
+            img_src = img.attrs['src'] if img else ''
+            url = absolute_link(
+                self.query_url,
+                listing.select_one('.href-link').attrs['href'])
+            ad_id = listing.select_one('.addAdTofav').attrs['data-adid']
+            db.insert_listing(self.contract_id, ad_id, url, title, description)
+            yield (self.contract_id, ad_id, url, title, description)
+
+        next_page = response.select_one('a.next.follows')
+        if next_page and depth < 3:
+            yield from self.parse(absolute_link(self.query_url, next_page.attrs['href']), depth=depth+1)
 
     def parse_listing_page(self, response):
         ad_id = response.css('.breadcrumbs.title::text').extract_first()
