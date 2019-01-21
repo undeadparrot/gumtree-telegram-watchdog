@@ -1,17 +1,13 @@
-import multiprocessing
-import gumtree_watchdog.scraper
-from gumtree_watchdog import db, scraper
-
-
-def crawl_gumtree(contract_id, query_url):
-    import logging
-    scraper.Spider(contract_id=contract_id, query_url=query_url).run()
+from gumtree_watchdog import db, spider
 
 
 def main():
-    for contract in db.get_open_contracts():
-        print("Contract: %s" % contract)
-        crawl_gumtree(contract['contract_id'], contract['query'])
+    with db.get_connection() as conn:
+        contracts = db.get_open_contracts(conn)
+        for contract in contracts:
+            for listing in spider.yield_listings_from_soup(contract_id=contract.contract_id,
+                                                           url=contract.query):
+                db.insert_listing(conn, listing)
 
 
 if __name__ == '__main__':
