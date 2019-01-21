@@ -1,2 +1,2 @@
-# gumtree-telegram-watcher
+# gumtree-telegram-watchdog
 Monitors Gumtree searches and notifies you via telegram

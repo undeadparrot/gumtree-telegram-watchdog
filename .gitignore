@@ -102,3 +102,4 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+gumtree_watchdog/gumtree.db
