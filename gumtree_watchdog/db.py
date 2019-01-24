@@ -12,7 +12,7 @@ def get_connection() -> TConn:
     if not DB_PATH:
         raise Exception("Please specify Sqlite3 db path as environment variable GUMTREE_DB")
 
-    conn = sqlite3.connect()
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -42,7 +42,6 @@ def initialize():
                 title text not null,
                 description text not null,
                 url text,
-                img_src text,
                 must_notify_user bool default 1,
                 FOREIGN KEY(contract_id) REFERENCES contract(contract_id),
                 UNIQUE(contract_id, ad_id)
@@ -112,7 +111,7 @@ def get_open_contracts(conn: TConn) -> List[Contract]:
 
 
 def get_open_contracts_for_user(conn: TConn, chat_id: int) -> List[Contract]:
-    results conn.execute("""
+    results = conn.execute("""
             SELECT * 
             FROM contract 
             WHERE is_active = 1
@@ -126,7 +125,7 @@ def get_open_contracts_for_user(conn: TConn, chat_id: int) -> List[Contract]:
 def get_unsent_listing_notifications(conn: TConn) -> List[ListingWithChatId]:
     results = conn.execute("""
 
-            SELECT listing_id, chat_id, url, title, description 
+            SELECT listing_id, ad_id, chat_id, url, title, description 
             FROM listing 
             JOIN contract USING (contract_id) 
             WHERE must_notify_user = 1

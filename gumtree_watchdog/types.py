@@ -7,6 +7,7 @@ class Listing:
     title: str
     description: str
     listing_id: int = dataclasses.field(default=None)
+    contract_id: int = dataclasses.field(default=None)
 
 @dataclasses.dataclass
 class ListingWithChatId(Listing):
@@ -17,6 +18,7 @@ class ListingWithChatId(Listing):
 class Contract:
     chat_id: int
     query: str
+    is_active: bool
     contract_id: int = dataclasses.field(default=None)
     
     

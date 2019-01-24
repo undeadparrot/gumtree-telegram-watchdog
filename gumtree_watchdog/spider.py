@@ -18,13 +18,11 @@ def absolute_link(base: str, link: str) -> str:
 
 
 def listing_from_soup(element, contract_id: str, query_url: str) -> Listing:
-    img = element.select_one('img')
     return Listing(
         contract_id=contract_id,
         ad_id=element.select_one('.addAdTofav').attrs['data-adid'],
         title=element.select_one('.title a').text,
         description=element.select_one('.description').text,
-        img_src=img.attrs['src'] if img else '',
         url=absolute_link(
             query_url,
             element.select_one('.href-link').attrs['href']),

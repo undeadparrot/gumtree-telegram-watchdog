@@ -13,14 +13,29 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 NOTIFICATION_CHECK_INTERVAL = 60.0 # seconds
+HELP_TEXT = ('Please send "/watch <url>" with a valid Gumtree url like: \n\n' + 
+            '/watch https://www.gumtree.co.za/s-furniture/western-cape/chair/v1c9181l3100001q0p1')
 
 def handle_message(bot, update):
     """ Log an unrecognised message
     """
-    db.insert_inbound_msg(update.message.chat_id, update.message.text)
+    with db.get_connection() as conn:
+        db.insert_inbound_msg(conn, update.message.chat_id, update.message.text)
 
 
 message_handler = MessageHandler([], handle_message)
+
+#
+
+def start(bot, update):
+    """ Handle a new user session
+    """
+    logger.warning("/start %s", update.message.chat_id)
+    update.message.reply_text(f'Welcome! 🐶 \n{HELP_TEXT}')
+
+
+start_handler = CommandHandler('start', start)
+
 
 #
 
@@ -30,10 +45,7 @@ def watch(bot, update, args):
     logger.warning("/watch %s", args)
     url = args[0] if len(args) == 1 else 'None'
     if 'https://' not in args[0]:
-        update.message.reply_text(
-            'Please send "/watch <url>" with a valid Gumtree url like: \n\n'
-            '/watch https://www.gumtree.co.za/s-furniture/western-cape/chair/v1c9181l3100001q0p1'
-        )
+        update.message.reply_text(HELP_TEXT)
 
     try:
         with db.get_connection() as conn:
@@ -44,10 +56,10 @@ def watch(bot, update, args):
 
     update.message.reply_text(
         'Understood, doing a preliminary scrape of the page now')
-    for listing in spider.yield_listings_from_soup(contract_id, url):
-
     with db.get_connection() as conn:
-        db.mark_contract_active(conn, contract_id)
+        for listing in spider.yield_listings_from_soup(contract_id, url):
+            db.mark_contract_active(conn, contract_id)
+
     update.message.reply_text('Done.')
 
 
@@ -94,7 +106,7 @@ def make_callback_minute(bot):
     yet been sent to the user
     """
     def callback_minute():
-        logging.debug("Checking for notifications to send")
+        logging.warning("Checking for notifications to send")
         with db.get_connection() as conn:
             for listing in db.get_unsent_listing_notifications(conn, ):
                 bot.send_message(
@@ -121,6 +133,7 @@ def main():
     updater = Updater(token=TELEGRAM_TOKEN)
 
     # register handlers for commands, convenient!
+    updater.dispatcher.add_handler(start_handler)
     updater.dispatcher.add_handler(watch_handler)
     updater.dispatcher.add_handler(stop_handler)
     updater.dispatcher.add_handler(list_open_contracts_handler)
